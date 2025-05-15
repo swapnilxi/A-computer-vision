@@ -1,0 +1,34 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+*.env
+*.pyc
+__pycache__/
+node_modules/
+dist/
+build/
+.vscode/settings.json
+
+# Python (FastAPI backend)
+*.sqlite3
+*.db
+*.pkl
+*.py[cod]
+*.so
+*.egg-info/
+*.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+.tox/
+.env
+
+# Next.js (Frontend)
+.next/
+out/
+*.next.cache/
+*.lock
+yarn-error.log
+npm-debug.log
