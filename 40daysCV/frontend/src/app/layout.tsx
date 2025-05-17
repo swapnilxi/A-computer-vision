@@ -1,13 +1,13 @@
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
-import "../styles/globals.css";
+import Sidebar from "./components/common/Sidebar";
+import Header from "./components/common/Header";
+import "@/app/globals.css";
 
 export const metadata = {
   title: "Computer Vision Lab",
   description: "Day-wise CV exercises"
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="flex h-screen">

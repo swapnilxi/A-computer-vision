@@ -105,7 +105,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/swapnil/Documents/Coding/Python/A-computer-vision/40daysCV/frontend-cv40/src/generated/prisma",
+      "value": "/Users/abundent/Documents/coding/Python/A-computer-vision/40daysCV/frontend/src/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -119,12 +119,11 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/swapnil/Documents/Coding/Python/A-computer-vision/40daysCV/frontend-cv40/prisma/schema.prisma",
+    "sourceFilePath": "/Users/abundent/Documents/coding/Python/A-computer-vision/40daysCV/frontend/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": null,
-    "schemaEnvPath": "../../../.env"
+    "rootEnvPath": null
   },
   "relativePath": "../../../prisma",
   "clientVersion": "6.7.0",
@@ -133,7 +132,7 @@ const config = {
     "db"
   ],
   "activeProvider": "sqlite",
-  "postinstall": false,
+  "postinstall": true,
   "inlineDatasources": {
     "db": {
       "url": {
