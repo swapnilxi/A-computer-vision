@@ -24,8 +24,11 @@ def convert_to_sketch(img):
     inverted_img = cv2.bitwise_not(gray_img)
     blurred_img = cv2.GaussianBlur(inverted_img, (21, 21), sigmaX=0, sigmaY=0)
     inverted_blur_img = cv2.bitwise_not(blurred_img)
+    # white background and black outline
     sketch_img = cv2.divide(gray_img, inverted_blur_img, scale=256.0)
-    return sketch_img
+    # Invert the sketch to get white outlines on dark background
+    sketch_img_inverted = cv2.bitwise_not(sketch_img)
+    return sketch_img_inverted
 
 
 def display_image(img, original):
