@@ -1,7 +1,7 @@
 import cv2
 
 # Load an image
-image = cv2.imread('/Users/swapnil/Documents/Coding/Python/A-computer-vision/40daysCV/frontend/src/app/courses/computer-vision/projects/ImagesData/shiva.jpeg')
+image = cv2.imread('/Users/abundent/Documents/coding/Python/A-computer-vision/40daysCV/frontend/src/app/courses/computer-vision/projects/ImagesData/shiva.jpeg')
 
 # Display the image
 cv2.imshow('Original Image', image)

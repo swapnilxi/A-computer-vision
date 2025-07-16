@@ -5,7 +5,7 @@ cap= cv2.VideoCapture(1)
 cap.set(3, 640)
 cap.set(4, 480 )
 
-imageBackgroud= cv2.imread("40daysCV/frontend/src/app/courses/computer-vision/projects/ImagesData/imageBackground.jpg")
+imageBackground= cv2.imread("4/Users/abundent/Documents/coding/Python/A-computer-vision/40daysCV/frontend/src/app/courses/computer-vision/projects/ImagesData/imageBackground.jpg")
 
 #making folder 
 folderModePath='ImagesData/Modes'
@@ -21,9 +21,9 @@ while True:
     success, img =cap.read()
     
     #adding capture  over backround # numbers are coordinate of height and width
-    imageBackgroud[162:162+480, 55: 55+640]= img
-    imageBackgroud[44:44+633, 808: 808+414]= imgModeList[0]
+    imageBackground[162:162+480, 55: 55+640]= img
+    imageBackground[44:44+633, 808: 808+414]= imgModeList[0]
     #cv2.imshow("webcam", img)
-    cv2.imshow("VideoAttendence", imageBackgroud)
+    cv2.imshow("VideoAttendence", imageBackground)
     cv2.waitKey(1)
     
