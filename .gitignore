@@ -32,3 +32,7 @@ out/
 *.lock
 yarn-error.log
 npm-debug.log
+
+# Add YOLO training runs directory to ignore (including subfolders)
+runs/
+**/runs/
