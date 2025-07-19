@@ -71,27 +71,13 @@ out/
 .env.production.local
 yarn-error.log
 npm-debug.log
-npm-debug.log*
-.pnpm-debug.log*
-lerna-debug.log*
 
-# Build outputs
-dist/
-build/
-.cache/
+# Add YOLO training runs directory to ignore (including subfolders)
+runs/
+**/runs/
 
-# OS specific
-.DS_Store
-.AppleDouble
-.LSOverride
-Thumbs.db
-*.cab
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Lock files (optional - uncomment if needed)
-# package-lock.json
-# yarn.lock
+# Datasets and results directories (any depth)
+Datasets/
+**/Datasets/
+results/
+**/results/
