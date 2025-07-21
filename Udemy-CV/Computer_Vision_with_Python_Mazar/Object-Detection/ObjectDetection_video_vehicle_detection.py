@@ -1,4 +1,5 @@
 from ultralytics import YOLO
+import os
 
 """
 # Load a pretrained YOLO11n model
@@ -18,17 +19,25 @@ results = model.train(
 ## Inference (testing ) the trained Model
 from ultralytics import YOLO
 
-# Load your trained YOLO11 model
-model = YOLO("/Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Object-Detection/runs/train/vehicles_yolo116/weights/best.pt")  # <-- Update with your best.pt path
+# Load your trained YOLO model
+model = YOLO("/Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Object-Detection/runs/train/vehicles_yolo116/weights/best.pt")
 
-# Run inference on your test image
-results = model("/Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Datasets/VehiclesDetection_Dataset/test/00dea1edf14f09ab_jpg.rf.KJ730oDTFPdXdJxvSLnX.jpg")  # <-- Update with your test image path
+# Path to test (can be a file or a folder)
+test_path = "/Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Datasets/VehiclesDetection_Dataset/test/images/00dea1edf14f09ab_jpg.rf.KJ730oDTFPdXdJxvSLnX.jpg"
+output_dir = "results/"
+os.makedirs(output_dir, exist_ok=True)
 
-# Show the image with detections (will pop up a window)
-results.show()
+def run_inference(image_path, output_dir, idx=0):
+    results = model(image_path)
+    for i, result in enumerate(results):
+        result.show()
+        output_path = os.path.join(output_dir, f"result_{idx+i}.jpg")
+        result.save(output_path)
+        print(result.boxes)
 
-# Optionally, save the result to a file
-results.save("results/")  # Saves to results directory
-
-# Print the predictions
-print(results[0].boxes)
+if os.path.isdir(test_path):
+    image_files = [os.path.join(test_path, f) for f in os.listdir(test_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    for idx, image_file in enumerate(image_files):
+        run_inference(image_file, output_dir, idx)
+else:
+    run_inference(test_path, output_dir)
