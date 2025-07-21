@@ -1,9 +1,0 @@
-train: /content/drive/MyDrive/ObjectDetection/VehiclesDetection/Dataset/train/images
-val: /content/drive/MyDrive/ObjectDetection/VehiclesDetection/Dataset/valid/images
-test: /content/drive/MyDrive/ObjectDetection/VehiclesDetection/Dataset/test/images 
-
-nc: 5
-names: ['Ambulance', 'Bus', 'Car', 'Motorcycle', 'Truck']
-
-#roboflow:
-  #url: https://universe.roboflow.com/roboflow-gw7yv/vehicles-openimages/dataset/1
