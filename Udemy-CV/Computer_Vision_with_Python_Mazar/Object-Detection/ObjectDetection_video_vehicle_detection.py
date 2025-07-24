@@ -80,4 +80,44 @@ def run_video_inference(video_path, output_dir):
 # evaluating the model 
 # metrics = model.val()
 # saving the model  as coreml
-model.export(format='coreml', dynamic=False, imgsz=640)
+#model.export(format='coreml', dynamic=False, imgsz=640)
+
+
+
+from ultralytics import YOLO
+import os
+
+# Paths
+val_images_dir = '/Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Datasets/VehiclesDetection_Dataset/valid/images'  # <-- Change this to your val images folder
+bus_results_dir = 'bus_results'
+os.makedirs(bus_results_dir, exist_ok=True)
+
+
+
+# Get bus class index from your YAML
+bus_class_name = 'Bus'
+yaml_path = '/Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Datasets/VehiclesDetection_Dataset/dataset.yaml'  # <-- Change to your YAML path
+
+# Read class names from YAML
+import yaml
+with open(yaml_path, 'r') as f:
+    names = yaml.safe_load(f)['names']
+bus_class_idx = names.index(bus_class_name)
+print(f"bus class index: {bus_class_idx}")
+
+# Inference and save only if bus detected
+for fname in os.listdir(val_images_dir):
+    if not fname.lower().endswith(('.jpg', '.jpeg', '.png')):
+        continue
+    img_path = os.path.join(val_images_dir, fname)
+    results = model(img_path)
+    for result in results:
+        # result.boxes.cls contains class indices for all detections
+        detected_classes = result.boxes.cls.cpu().numpy().astype(int)
+        if bus_class_idx in detected_classes:
+            # Save annotated image
+            out_path = os.path.join(bus_results_dir, fname)
+            result.save(out_path)
+            print(f"bus detected in {fname}, saved to {out_path}")
+
+print("Done! All bus images are in:", bus_results_dir)

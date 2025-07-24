@@ -1,0 +1,5 @@
+train: /Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Datasets/balloon_dataset/train
+val: /Users/abundent/Documents/coding/Python/A-computer-vision/Udemy-CV/Computer_Vision_with_Python_Mazar/Datasets/balloon_dataset/val
+
+nc: 1
+names: ["balloon"]
