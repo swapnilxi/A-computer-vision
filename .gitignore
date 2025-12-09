@@ -3,32 +3,95 @@
 Thumbs.db
 *.log
 *.env
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+# Python
 *.pyc
+*.pyo
 __pycache__/
 node_modules/
 dist/
 build/
-.vscode/settings.json
-
-# Python (FastAPI backend)
-*.sqlite3
-*.db
-*.pkl
+*.pyd
 *.py[cod]
 *.so
+*.egg
 *.egg-info/
-*.pytest_cache/
+dist/
+build/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
 .coverage
 htmlcov/
-.mypy_cache/
-.pytest_cache/
 .tox/
-.env
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+**/__pycache__/
+**/*.pyc
+**/__pycache__
 
-# Next.js (Frontend)
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+.python-version
+
+# Database
+*.sqlite3
+*.sqlite
+*.db
+*.pkl
+*.pickle
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Node.js / Next.js (Frontend)
+node_modules/
 .next/
 out/
-*.next.cache/
-*.lock
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 yarn-error.log
 npm-debug.log
+npm-debug.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+build/
+.cache/
+
+# OS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.cab
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
