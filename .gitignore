@@ -36,3 +36,7 @@ npm-debug.log
 # Add YOLO training runs directory to ignore (including subfolders)
 runs/
 **/runs/
+
+# Datasets and results directories (any depth)
+**/Datasets/
+**/results/
