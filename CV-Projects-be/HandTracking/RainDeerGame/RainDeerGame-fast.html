@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Christmas (Python Powered)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px; color: white;
+            pointer-events: none; z-index: 10;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        #status-msg {
+            position: absolute; top: 20px; right: 20px; 
+            color: #ff5252; font-weight: bold; background: rgba(0,0,0,0.8);
+            padding: 10px; border-radius: 8px; pointer-events: none; z-index: 20;
+        }
+        
+        #snow-canvas {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 30;
+        }
+
+        .hud-text { font-size: 32px; font-weight: 800; color: #ff3333; letter-spacing: 1px; text-shadow: 2px 2px 4px white; }
+        .instructions { font-size: 16px; color: #fff; margin-top: 5px; font-weight: 600;}
+        
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 30px; height: 30px;
+            border: 3px solid rgba(255, 255, 255, 0.9); border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 20;
+            transition: width 0.1s, height 0.1s, background-color 0.1s, transform 0.1s;
+        }
+        .shooting { 
+            background-color: rgba(255, 50, 50, 0.6); 
+            width: 20px !important; height: 20px !important;
+            border-color: #ff5252 !important;
+        }
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="status-msg">🔌 Connecting to Python...</div>
+
+    <div id="ui-layer">
+        <div class="hud-text">XMAS SCORE: <span id="score">0</span></div>
+        <div class="instructions">Run 'python server.py' to control.</div>
+    </div>
+
+    <div id="crosshair"></div>
+    <canvas id="snow-canvas"></canvas>
+    <div id="canvas-container"></div>
+
+    <script type="x-shader/x-vertex" id="grassVertex">
+        uniform float uTime;
+        uniform vec3 uInteractionPos;
+        varying vec3 vColor;
+        void main() {
+            vColor = instanceColor; 
+            vec3 pos = position;
+            vec4 worldPosition = instanceMatrix * vec4(pos, 1.0);
+            float dist = distance(worldPosition.xyz, uInteractionPos);
+            float radius = 5.0;
+            if(dist < radius) {
+                vec3 pushDir = normalize(worldPosition.xyz - uInteractionPos);
+                pushDir.y = 0.0; 
+                float strength = (1.0 - dist / radius);
+                if(pos.y > 0.1) {
+                    worldPosition.x += pushDir.x * strength * 2.5;
+                    worldPosition.z += pushDir.z * strength * 2.5;
+                    worldPosition.y -= strength * 0.8;
+                }
+            }
+            if(pos.y > 0.1) {
+                float wind = sin(uTime * 1.5 + worldPosition.x * 0.5 + worldPosition.z * 0.5) * 0.15;
+                worldPosition.x += wind;
+            }
+            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="grassFragment">
+        varying vec3 vColor;
+        void main() { gl_FragColor = vec4(vColor, 1.0); }
+    </script>
+    <script type="x-shader/x-vertex" id="waterVertex">
+        uniform float uTime;
+        uniform vec3 uInteractionPos;
+        varying vec2 vUv;
+        varying float vElevation;
+        void main() {
+            vUv = uv;
+            vec3 pos = position;
+            float wave1 = sin(pos.x * 0.3 + uTime * 0.5) * 0.15;
+            float wave2 = cos(pos.y * 0.3 + uTime * 0.4) * 0.15; 
+            vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
+            float dist = distance(worldPosition.xyz, uInteractionPos);
+            float radius = 6.0;
+            float ripple = 0.0;
+            if(dist < radius) {
+                float strength = (1.0 - dist / radius);
+                ripple = -0.8 * strength; 
+                ripple += sin(dist * 8.0 - uTime * 8.0) * 0.1 * strength; 
+            }
+            pos.z += wave1 + wave2 + ripple; 
+            vElevation = pos.z;
+            gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(pos, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="waterFragment">
+        uniform vec3 uColor;
+        varying float vElevation;
+        void main() {
+            vec3 icyBlue = uColor;
+            vec3 white = vec3(0.95, 0.98, 1.0);
+            float mixVal = smoothstep(-0.5, 0.5, vElevation);
+            vec3 finalColor = mix(icyBlue, white, mixVal);
+            gl_FragColor = vec4(finalColor, 0.85); 
+        }
+    </script>
+
+    <script>
+        // --- WEBSOCKET CONNECTION ---
+        let socket;
+        let isShooting = false;
+        
+        function connect() {
+            socket = new WebSocket("ws://localhost:8765");
+            
+            socket.onopen = () => {
+                document.getElementById('status-msg').style.color = '#4caf50';
+                document.getElementById('status-msg').innerText = "🟢 Connected to Python Hand Tracker";
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.found) {
+                    const x = data.x * window.innerWidth;
+                    const y = data.y * window.innerHeight;
+                    handleInput(x, y);
+
+                    // Pinch Detection (Python sends pre-calculated distance)
+                    if (data.pinch_dist < 0.05) { 
+                        if(!isShooting) { tryShoot(); isShooting = true; }
+                    } else {
+                        isShooting = false;
+                        document.getElementById('crosshair').classList.remove('shooting');
+                    }
+                }
+            };
+
+            socket.onclose = () => {
+                document.getElementById('status-msg').style.color = '#ff5252';
+                document.getElementById('status-msg').innerText = "🔴 Disconnected. Run Python script.";
+                // Try to reconnect every 2 seconds
+                setTimeout(connect, 2000);
+            };
+        }
+
+        connect(); // Start connection
+
+        // --- 3D SCENE SETUP ---
+        const CONF = {
+            grassCount: 3000,
+            bgColor: 0xb0d7ff,
+            groundColor: 0xf0f8ff,
+            waterColor: new THREE.Color(0xcce6ff),
+            treeCount: 60,
+            pineColor: 0x1b5e20,
+            snowColor: 0xffffff
+        };
+
+        let score = 0;
+        let deerList = []; 
+        let cloudList = [];
+        let interactionPoint = new THREE.Vector3(0, -50, 0);
+        let inputNDC = new THREE.Vector2();
+        
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(CONF.bgColor);
+        scene.fog = new THREE.Fog(CONF.bgColor, 50, 140); 
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+        camera.position.set(0, 10, 24); 
+        camera.lookAt(0, 2, 0); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xddeeff, 0.6); 
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffee, 1.2); 
+        dirLight.position.set(30, 50, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.left = -60; dirLight.shadow.camera.right = 60;
+        dirLight.shadow.camera.top = 60; dirLight.shadow.camera.bottom = -60;
+        scene.add(dirLight);
+
+        const sunGeo = new THREE.BoxGeometry(5, 5, 5);
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xfffba0 });
+        const sun = new THREE.Mesh(sunGeo, sunMat);
+        sun.position.set(20, 30, -30); 
+        scene.add(sun);
+
+        function getTerrainHeight(x, z) {
+            const y1 = Math.sin(x * 0.1) * 1.5;
+            const y2 = Math.cos(z * 0.1) * 1.5;
+            const dist = Math.sqrt(x*x + z*z);
+            const flatFactor = Math.min(1.0, dist / 12.0); 
+            return (y1 + y2) * flatFactor - 2.5; 
+        }
+
+        const groundGeo = new THREE.PlaneGeometry(120, 120, 48, 48);
+        const pos = groundGeo.attributes.position;
+        for(let i=0; i<pos.count; i++) pos.setZ(i, getTerrainHeight(pos.getX(i), pos.getY(i)));
+        groundGeo.computeVertexNormals();
+        const groundMat = new THREE.MeshLambertMaterial({ color: CONF.groundColor });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const waterGeo = new THREE.PlaneGeometry(120, 120, 64, 64);
+        const waterUniforms = { uTime: { value: 0 }, uInteractionPos: { value: new THREE.Vector3(0, -50, 0) }, uColor: { value: CONF.waterColor } };
+        const waterMat = new THREE.ShaderMaterial({ vertexShader: document.getElementById('waterVertex').textContent, fragmentShader: document.getElementById('waterFragment').textContent, uniforms: waterUniforms, transparent: true, side: THREE.DoubleSide });
+        const water = new THREE.Mesh(waterGeo, waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -2.8;
+        scene.add(water);
+
+        const grassGeo = new THREE.BoxGeometry(0.1, 0.5, 0.1); 
+        grassGeo.translate(0, 0.25, 0);
+        const grassUniforms = { uTime: { value: 0 }, uInteractionPos: { value: new THREE.Vector3(0, -50, 0) } };
+        const grassMat = new THREE.ShaderMaterial({ vertexShader: document.getElementById('grassVertex').textContent, fragmentShader: document.getElementById('grassFragment').textContent, uniforms: grassUniforms });
+        const grassMesh = new THREE.InstancedMesh(grassGeo, grassMat, CONF.grassCount);
+        
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+        let gIndex = 0;
+        for(let i=0; i<CONF.grassCount; i++){
+            const x = (Math.random()-0.5) * 90; z = (Math.random()-0.5) * 90;
+            const y = getTerrainHeight(x, -z);
+            if(y > -2.6) { 
+                dummy.position.set(x, y, z);
+                dummy.rotation.y = Math.random() * Math.PI;
+                dummy.scale.setScalar(0.5 + Math.random()*0.5);
+                dummy.updateMatrix();
+                grassMesh.setMatrixAt(gIndex, dummy.matrix);
+                color.setHex(0xffffff);
+                color.lerp(new THREE.Color(0xddeeff), Math.random());
+                grassMesh.setColorAt(gIndex, color);
+                gIndex++;
+            }
+        }
+        grassMesh.instanceMatrix.needsUpdate = true;
+        grassMesh.instanceColor.needsUpdate = true;
+        scene.add(grassMesh);
+
+        const matTrunk = new THREE.MeshLambertMaterial({ color: 0x4a2f22 }); 
+        const matPine = new THREE.MeshLambertMaterial({ color: CONF.pineColor });
+        const matSnow = new THREE.MeshLambertMaterial({ color: CONF.snowColor });
+
+        function createPineTree(x, z, y) {
+            const tree = new THREE.Group();
+            tree.position.set(x, y, z);
+            const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.5, 0.5), matTrunk);
+            trunk.position.y = 0.75; trunk.castShadow = true;
+            tree.add(trunk);
+            const tier1 = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.0, 2.5), matPine);
+            tier1.position.y = 1.8; tier1.castShadow = true;
+            tree.add(tier1);
+            const tier2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 1.8), matPine);
+            tier2.position.y = 2.7; tier2.castShadow = true;
+            tree.add(tier2);
+            const tier3 = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 1.0), matPine);
+            tier3.position.y = 3.5; tier3.castShadow = true;
+            tree.add(tier3);
+            const snowTop = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.8), matSnow);
+            snowTop.position.y = 4.0; snowTop.castShadow = true;
+            tree.add(snowTop);
+            const s = 0.7 + Math.random() * 0.6;
+            tree.scale.set(s,s,s);
+            tree.rotation.y = Math.random() * Math.PI;
+            scene.add(tree);
+        }
+
+        for(let i=0; i<CONF.treeCount; i++) {
+            const x = (Math.random()-0.5)*90; const z = (Math.random()-0.5)*90;
+            const y = getTerrainHeight(x, -z);
+            if(y > -2.0) createPineTree(x, z, y);
+        }
+
+        function createCloud() {
+            const grp = new THREE.Group();
+            const geo = new THREE.BoxGeometry(1,1,1);
+            const mat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.9});
+            const chunks = 4 + Math.floor(Math.random()*5);
+            for(let i=0; i<chunks; i++){
+                const m = new THREE.Mesh(geo, mat);
+                m.position.set(Math.random()*2.5, Math.random()*1.5, Math.random()*2);
+                grp.add(m);
+            }
+            grp.position.set((Math.random()-0.5)*100, 15 + Math.random()*10, -20 - Math.random()*30);
+            grp.userData = { speed: 1.0 + Math.random()*1.5 };
+            scene.add(grp);
+            cloudList.push(grp);
+        }
+        for(let i=0; i<12; i++) createCloud();
+
+        class Reindeer {
+            constructor() {
+                this.group = new THREE.Group();
+                this.speed = 2.0 + Math.random();
+                this.target = new THREE.Vector3();
+                this.fleeing = false;
+                this.build();
+                this.spawn();
+                scene.add(this.group);
+            }
+            build() {
+                const deerBodyMat = new THREE.MeshLambertMaterial({ color: 0x795548 });
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 1.1), deerBodyMat);
+                body.position.y = 0.7; body.castShadow = true;
+                this.group.add(body);
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.5), deerBodyMat);
+                head.position.set(0, 1.2, 0.6); head.castShadow = true;
+                this.group.add(head);
+                const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshLambertMaterial({ color: 0xff0000 }));
+                nose.position.set(0, 1.2, 0.9);
+                this.group.add(nose);
+                const antlerMat = new THREE.MeshLambertMaterial({ color: 0xd7ccc8 }); 
+                const antlerGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1);
+                const leftBase = new THREE.Mesh(antlerGeo, antlerMat);
+                leftBase.position.set(-0.2, 1.5, 0.5);
+                const rightBase = new THREE.Mesh(antlerGeo, antlerMat);
+                rightBase.position.set(0.2, 1.5, 0.5);
+                const tipGeo = new THREE.BoxGeometry(0.3, 0.1, 0.1);
+                const leftTip = new THREE.Mesh(tipGeo, antlerMat);
+                leftTip.position.set(-0.3, 1.65, 0.5);
+                const rightTip = new THREE.Mesh(tipGeo, antlerMat);
+                rightTip.position.set(0.3, 1.65, 0.5);
+                this.group.add(leftBase, rightBase, leftTip, rightTip);
+            }
+            spawn() {
+                const x=(Math.random()-0.5)*70; const z=(Math.random()-0.5)*70;
+                const y=getTerrainHeight(x,-z);
+                if(y>-2.5) { this.group.position.set(x, y, z); this.pickTarget(); }
+                else this.spawn(); 
+            }
+            pickTarget() {
+                const x=(Math.random()-0.5)*80; const z=(Math.random()-0.5)*80;
+                this.target.set(x, 0, z);
+            }
+            update(dt) {
+                const myPos = this.group.position;
+                const dist = Math.hypot(this.target.x - myPos.x, this.target.z - myPos.z);
+                const distToCursor = myPos.distanceTo(interactionPoint);
+                if(distToCursor < 6.0 && !this.fleeing) {
+                    this.fleeing = true;
+                    const fleeDir = new THREE.Vector3().subVectors(myPos, interactionPoint).normalize();
+                    this.target.copy(myPos).add(fleeDir.multiplyScalar(20));
+                    this.speed = 7.0; 
+                }
+                if(dist < 0.5) { this.fleeing = false; this.speed = 2.0; this.pickTarget(); }
+                const dirX = (this.target.x - myPos.x) / dist; const dirZ = (this.target.z - myPos.z) / dist;
+                myPos.x += dirX * this.speed * dt; myPos.z += dirZ * this.speed * dt;
+                myPos.y = getTerrainHeight(myPos.x, -myPos.z);
+                this.group.lookAt(this.target.x, myPos.y, this.target.z);
+            }
+        }
+
+        for(let i=0; i<10; i++) deerList.push(new Reindeer());
+
+        const raycaster = new THREE.Raycaster();
+        function handleInput(x, y) {
+            const el = document.getElementById('crosshair');
+            el.style.left = `${x}px`; el.style.top = `${y}px`;
+            inputNDC.x = (x / window.innerWidth) * 2 - 1;
+            inputNDC.y = -(y / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(inputNDC, camera);
+            const hits = raycaster.intersectObjects([ground, water]);
+            if(hits.length > 0) interactionPoint.lerp(hits[0].point, 0.2);
+        }
+
+        function tryShoot() {
+            document.getElementById('crosshair').classList.add('shooting');
+            raycaster.setFromCamera(inputNDC, camera);
+            const targets = deerList.map(d => d.group);
+            const hits = raycaster.intersectObjects(targets, true);
+            if(hits.length > 0) {
+                let obj = hits[0].object;
+                while(obj.parent && obj.parent.type !== 'Scene') obj = obj.parent;
+                const idx = deerList.findIndex(d => d.group === obj);
+                if(idx !== -1) {
+                    scene.remove(deerList[idx].group);
+                    deerList.splice(idx, 1);
+                    score += 100;
+                    document.getElementById('score').innerText = score;
+                    setTimeout(() => deerList.push(new Reindeer()), 2000);
+                }
+            }
+        }
+
+        // --- 2D SNOWFALL ---
+        const snowCanvas = document.getElementById('snow-canvas');
+        const snowCtx = snowCanvas.getContext('2d');
+        let snowParticles = [];
+
+        function resizeSnowCanvas() {
+            snowCanvas.width = window.innerWidth;
+            snowCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeSnowCanvas);
+        resizeSnowCanvas();
+
+        function createSnowflakes() {
+            const count = window.innerWidth / 4; 
+            for(let i = 0; i < count; i++) {
+                snowParticles.push({
+                    x: Math.random() * snowCanvas.width,
+                    y: Math.random() * snowCanvas.height,
+                    radius: Math.random() * 3 + 1,
+                    speed: Math.random() * 2 + 1,
+                    drift: (Math.random() - 0.5) * 0.5
+                });
+            }
+        }
+        createSnowflakes();
+
+        function drawSnow() {
+            snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+            snowCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            snowCtx.beginPath();
+            for(const p of snowParticles) {
+                snowCtx.moveTo(p.x, p.y);
+                snowCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                p.y += p.speed;
+                p.x += p.drift;
+                if(p.y > snowCanvas.height) {
+                    p.y = -p.radius;
+                    p.x = Math.random() * snowCanvas.width;
+                }
+            }
+            snowCtx.fill();
+        }
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            grassUniforms.uTime.value = time; grassUniforms.uInteractionPos.value.copy(interactionPoint);
+            waterUniforms.uTime.value = time; waterUniforms.uInteractionPos.value.copy(interactionPoint);
+            deerList.forEach(d => d.update(dt));
+            cloudList.forEach(c => { c.position.x += c.userData.speed * dt; if(c.position.x > 90) c.position.x = -90; });
+            sun.position.y = 30 + Math.sin(time * 0.3) * 2;
+
+            drawSnow();
+            renderer.render(scene, camera);
+        }
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+        animate();
+    </script>
+</body>
+</html>
