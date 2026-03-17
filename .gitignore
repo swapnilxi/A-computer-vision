@@ -38,5 +38,7 @@ runs/
 **/runs/
 
 # Datasets and results directories (any depth)
+Datasets/
 **/Datasets/
+results/
 **/results/
